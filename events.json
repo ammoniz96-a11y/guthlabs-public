@@ -1,0 +1,12 @@
+[
+  {
+    "label": "next cohort reflections due",
+    "anchor": "2026-07-06T08:15:53-07:00",
+    "every_ms": 21600000
+  },
+  {
+    "label": "next Panel observations due",
+    "anchor": "2026-07-07T02:15:53-07:00",
+    "every_ms": 86400000
+  }
+]

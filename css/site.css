@@ -220,6 +220,66 @@ body {
   font-size: 1rem;
 }
 
+/* ── UPCOMING: the homescreen event timers (LWO-7) ─────────────────────────── */
+/* Registry-plain. A labelled list with the countdown in tabular figures so the
+   digits do not jitter as they tick — that steadiness is the one functional
+   quotation (a board that keeps its columns), not a departure-board costume.
+   The section renders nothing when the calendar is empty, so no rule needs an
+   empty state. */
+
+.upcoming {
+  border-top: 1px solid var(--rule);
+  padding-top: 2.5rem;
+  margin-top: 3rem;
+}
+
+.upcoming-heading {
+  font-family: var(--sans);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  margin: 0 0 1.1rem;
+}
+
+.upcoming-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.upcoming-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.upcoming-label {
+  color: var(--ink);
+  font-size: 1.02rem;
+}
+
+.upcoming-countdown {
+  font-family: "SF Mono", "SFMono-Regular", ui-monospace, Menlo, Consolas, monospace;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.98rem;
+  color: var(--ink-soft);
+  white-space: nowrap;
+  letter-spacing: 0.02em;
+}
+
+.upcoming-note {
+  font-family: var(--sans);
+  font-size: 0.78rem;
+  color: var(--ink-faint);
+  margin: 1.25rem 0 0;
+}
+
 /* ── the one quiet way into the record ─────────────────────────────────────── */
 
 .threshold-aside {

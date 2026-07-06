@@ -15,6 +15,7 @@ import {
   renderPanel,
   renderError,
 } from "./render.js";
+import { upcomingEvents, renderUpcoming, formatCountdown } from "./events.js";
 import {
   validateSignup,
   signup,
@@ -94,6 +95,89 @@ export function mountChronicle(nodeId) {
 
 export function mountPanel(nodeId) {
   return mountView(nodeId, "panel", renderPanel);
+}
+
+// ── UPCOMING: the homescreen event timers (LWO-7) ────────────────────────────
+//
+// Reads site/events.json (the steward's curated public calendar), renders the list
+// once, then ticks every second — client-side only, no network. Each tick re-reads
+// the epoch-ms due time carried on each row's data-due-at and rewrites the HH:MM:SS
+// text in place. When a row reaches (or passes) its due moment, the whole list is
+// recomputed from events.json against the current clock so recurring events roll to
+// their next occurrence and expired one-shots drop off — the honest, seamless rollover
+// the spec asks for. If events.json is absent, empty, or every row is malformed, the
+// section renders nothing (never a fabricated row, never a broken page).
+//
+// nowFn/fetchFn are injectable for tests; the browser supplies Date.now and fetch.
+export async function mountUpcoming(nodeId, opts = {}) {
+  const node = el(nodeId);
+  if (!node) return null;
+
+  const nowFn =
+    typeof opts.now === "function" ? opts.now : () => Date.now();
+  const fetchFn = opts.fetch || browserFetch();
+  const setIntervalFn =
+    opts.setInterval ||
+    (typeof globalThis.setInterval === "function"
+      ? globalThis.setInterval.bind(globalThis)
+      : null);
+
+  // Load the curated calendar. Any failure → render nothing (the section is optional;
+  // it never blocks the threshold and never fabricates content on error).
+  let raw = [];
+  try {
+    const res = await fetchFn("./events.json", { cache: "no-store" });
+    if (res && res.ok) raw = await res.json();
+  } catch {
+    raw = [];
+  }
+  if (!Array.isArray(raw)) raw = [];
+
+  // Render the current state of the list. Returns the number of rows drawn.
+  function draw() {
+    const now = nowFn();
+    const rows = upcomingEvents(raw, now);
+    node.innerHTML = renderUpcoming(rows, now);
+    return rows.length;
+  }
+
+  draw();
+
+  if (!setIntervalFn) return null; // no timer available (SSR/test without one)
+
+  // The 1s tick. Fast path: update each countdown's text from its data-due-at. If any
+  // row has reached its due moment, redraw the whole list (roll recurring / drop
+  // one-shots). Redrawing rebinds the DOM, so we return early after a redraw.
+  const handle = setIntervalFn(() => {
+    const now = nowFn();
+    const cells = node.querySelectorAll(".upcoming-countdown");
+    if (cells.length === 0) {
+      // Nothing currently shown; a previously-empty calendar could gain a row only if
+      // events.json changed (it does not at runtime), so a redraw is cheap and safe.
+      draw();
+      return;
+    }
+    let needsRedraw = false;
+    for (const cell of cells) {
+      const dueAt = Number(cell.getAttribute("data-due-at"));
+      const remaining = Number.isFinite(dueAt) ? dueAt - now : 0;
+      if (remaining <= 0) {
+        needsRedraw = true; // due → roll recurring / drop one-shots
+        break;
+      }
+      // An unannounced row that has reached its reveal instant needs its true label:
+      // redraw so the mask is swapped for the real label (the countdown is unchanged).
+      const revealAtAttr = cell.getAttribute("data-reveal-at");
+      if (revealAtAttr !== null && now >= Number(revealAtAttr)) {
+        needsRedraw = true;
+        break;
+      }
+      cell.textContent = formatCountdown(remaining);
+    }
+    if (needsRedraw) draw();
+  }, 1000);
+
+  return handle;
 }
 
 // ── the Threshold: signup, login, and the remember-me theatre ────────────────

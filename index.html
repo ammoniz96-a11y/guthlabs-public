@@ -184,10 +184,20 @@
     </form>
   </div>
 
+  <!-- UPCOMING (LWO-7). Above the one quiet way into the record. app.js reads
+       events.json (the steward's curated public calendar), computes each event's next
+       due time, and renders a live per-row HH:MM:SS countdown that ticks client-side
+       every second — no network. A malformed row is skipped; an expired one-shot drops
+       off; if nothing is upcoming the section renders nothing (never a fabricated row).
+       One anachronism at most (TONE/anachronism): the countdown is a real function in
+       tabular figures, not a departure-board costume. -->
+  <div id="upcoming-mount"></div>
+
   <a class="threshold-aside" href="./record.html">read the record</a>
 </main>
 
 <script type="module">
-  import { mountThreshold } from "./js/app.js";
+  import { mountThreshold, mountUpcoming } from "./js/app.js";
   mountThreshold();
+  mountUpcoming("upcoming-mount");
 </script>
