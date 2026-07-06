@@ -28,6 +28,12 @@ import {
   renderSignupSuccess,
   renderSignedIn,
   PASSWORD_MASK,
+  // LWO-6 — forgot-password flow
+  requestRecovery,
+  parseRecoveryHash,
+  validateNewPassword,
+  updatePassword,
+  renderRecoverySent,
 } from "./auth.js";
 
 function el(id) {
@@ -175,26 +181,34 @@ export function mountThreshold() {
 
   const signupForm = el("signup-form");
   const loginForm = el("login-form");
+  const recoverForm = el("recover-form");
+  const newPasswordForm = el("new-password-form");
   const storage = browserStorage();
 
   // ── mode switching ─────────────────────────────────────────────────────────
+  // Faces: signup / login / recover (enter email for a reset) / new-password
+  // (set a new password after landing on a recovery link). Exactly one is shown.
   function showMode(mode) {
     panel.dataset.mode = mode;
     if (signupForm) signupForm.hidden = mode !== "signup";
     if (loginForm) loginForm.hidden = mode !== "login";
+    if (recoverForm) recoverForm.hidden = mode !== "recover";
+    if (newPasswordForm) newPasswordForm.hidden = mode !== "new-password";
   }
 
+  const KNOWN_MODES = new Set(["signup", "login", "recover", "new-password"]);
   for (const btn of panel.querySelectorAll(".threshold-switch")) {
     btn.addEventListener("click", () => {
       const to = btn.dataset.switchTo;
-      // Leaving the theatre by hand: a manual switch to signup should not keep a
+      // Leaving the theatre by hand: a manual switch away from login should not keep a
       // masked password around. Clear both login fields so nothing pre-filled lingers.
       if (loginForm) {
         loginForm.reset();
         clearFormErrors(loginForm);
       }
       if (signupForm) clearFormErrors(signupForm);
-      showMode(to === "login" ? "login" : "signup");
+      if (recoverForm) clearFormErrors(recoverForm);
+      showMode(KNOWN_MODES.has(to) ? to : "signup");
     });
   }
 
@@ -204,10 +218,27 @@ export function mountThreshold() {
   // mask is display-only, and pressing "login" resumes via the refresh token. If the
   // visitor edits the password field, the mask is dropped and a real password login
   // takes over (the honest fallback if they'd rather type it).
+  // ── recovery landing takes precedence over everything ────────────────────────
+  // If the page loaded on a reset link (type=recovery tokens in the URL hash), the
+  // ONE thing to do is let the visitor set a new password — regardless of any stored
+  // session. Detect it first; if present, show the set-new-password form and stop the
+  // normal theatre/signup decision. The token stays in the hash (never a query, never
+  // storage) until the PUT succeeds.
+  const recovery = (() => {
+    try {
+      return parseRecoveryHash(globalThis.location ? globalThis.location.hash : "");
+    } catch {
+      return null;
+    }
+  })();
+
   const stored = readSession(storage);
   let masked = false; // true while the login password field holds the display mask
 
-  if (stored && loginForm) {
+  if (recovery && newPasswordForm) {
+    wireNewPasswordForm(recovery);
+    showMode("new-password");
+  } else if (stored && loginForm) {
     const emailInput = loginForm.elements.email;
     const pwInput = loginForm.elements.password;
     if (emailInput) emailInput.value = stored.email || "";
@@ -342,6 +373,120 @@ export function mountThreshold() {
         return;
       }
       setFormError(loginForm, result.message);
+      resetButton(btn);
+    });
+  }
+
+  // ── recover submit: request a reset link (no existence oracle) ────────────────
+  if (recoverForm) {
+    recoverForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      clearFormErrors(recoverForm);
+
+      const email = (recoverForm.elements.email?.value ?? "").trim();
+      if (email.length === 0) {
+        const slot = recoverForm.querySelector('[data-error-for="recover-email"]');
+        if (slot) slot.innerHTML = renderFieldError("An email is required.");
+        const input = recoverForm.elements.email;
+        if (input && typeof input.focus === "function") input.focus();
+        return;
+      }
+
+      const btn = busyButton(recoverForm, "Sending…");
+      const result = await requestRecovery(
+        {
+          supabaseUrl: CONFIG.SUPABASE_URL,
+          publishableKey: CONFIG.PUBLISHABLE_KEY,
+          email,
+        },
+        browserFetch(),
+      );
+
+      // The no-oracle contract: a success shows the SAME line whether or not the
+      // address is registered. Only a real failure (rate limit, transport, server)
+      // keeps the form up with an honest error — never dressed as sent.
+      if (result.ok) {
+        replacePanel(panel, renderRecoverySent());
+        return;
+      }
+      setFormError(recoverForm, result.message);
+      resetButton(btn);
+    });
+  }
+
+  // ── set-new-password: applied via PUT /auth/v1/user with the recovery token ────
+  function wireNewPasswordForm(recoveryCtx) {
+    if (!newPasswordForm) return;
+    newPasswordForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      clearFormErrors(newPasswordForm);
+
+      const input = {
+        password: newPasswordForm.elements.password?.value ?? "",
+        confirm: newPasswordForm.elements.confirm?.value ?? "",
+      };
+      const { ok, errors } = validateNewPassword(input);
+      if (!ok) {
+        for (const [field, msg] of Object.entries(errors)) {
+          // logical field name → the form's slot id (password / confirm)
+          const slotId = field === "confirm" ? "new-password-confirm" : "new-password";
+          const slot = newPasswordForm.querySelector(`[data-error-for="${slotId}"]`);
+          if (slot) slot.innerHTML = renderFieldError(msg);
+          const el = newPasswordForm.elements[field];
+          if (el) el.setAttribute("aria-invalid", "true");
+        }
+        return;
+      }
+
+      const btn = busyButton(newPasswordForm, "Setting…");
+      const result = await updatePassword(
+        {
+          supabaseUrl: CONFIG.SUPABASE_URL,
+          publishableKey: CONFIG.PUBLISHABLE_KEY,
+          accessToken: recoveryCtx.access_token,
+          refreshToken: recoveryCtx.refresh_token,
+          password: input.password,
+        },
+        browserFetch(),
+      );
+
+      if (result.ok) {
+        // The recovery token pair is now the signed-in session. Store it, clear the
+        // sensitive hash from the URL, and land on the signed-in state.
+        saveSession(storage, result.session);
+        try {
+          if (globalThis.history && globalThis.location) {
+            globalThis.history.replaceState(
+              null,
+              "",
+              globalThis.location.pathname + globalThis.location.search,
+            );
+          }
+        } catch {
+          /* clearing the hash is best-effort; the session is already stored */
+        }
+        replacePanel(panel, renderSignedIn(result.session.email));
+        return;
+      }
+
+      if (result.expired) {
+        // The link is expired or already used. Offer to send another: drop to the
+        // recover form with an honest explanation carried over.
+        resetButton(btn);
+        showMode("recover");
+        if (recoverForm) {
+          clearFormErrors(recoverForm);
+          setFormError(
+            recoverForm,
+            result.message ||
+              "This reset link has expired or already been used. Request a new one below.",
+          );
+        }
+        return;
+      }
+
+      // A rate limit or transport failure — keep the form up, let them retry.
+      setFormError(newPasswordForm, result.message || "Could not set the password.");
       resetButton(btn);
     });
   }

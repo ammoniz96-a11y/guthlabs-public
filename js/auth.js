@@ -431,3 +431,270 @@ export function renderSignedIn(email) {
   <p class="threshold-done-note">The doors have not opened. When they do, you will already be known here.</p>
 </div>`;
 }
+
+// ══════════════════════════════════════════════════════════════════════════════
+// LWO-6 — the forgot-password flow: request a reset, land on the recovery link,
+// set a new password, then hand off to the signed-in state.
+// ══════════════════════════════════════════════════════════════════════════════
+//
+// Two halves, each honest:
+//   - REQUEST: a visitor who lost their password enters their email; we POST the
+//     recover endpoint and ALWAYS show the same no-oracle line — "if that address
+//     is registered, a reset link is on its way." We never confirm or deny that an
+//     account exists (an existence oracle is a gift to an attacker), and a transport
+//     failure is never dressed as success.
+//   - LAND + SET: the reset email links back to this Site URL with a recovery token
+//     pair in the URL hash (type=recovery). We detect it at load, show a set-new-
+//     password form (the same MIN_PASSWORD_LENGTH floor as signup), and apply it via
+//     PUT /auth/v1/user authenticated by the RECOVERY access token. Success stores
+//     the session and lands on the signed-in state; an expired/used link says so and
+//     offers to send another.
+
+// ── request a recovery link (impure; fetch injected) ──────────────────────────
+//
+// POST /auth/v1/recover with { email } and the anon (publishable) key. Supabase
+// returns 200 with an empty body whether or not the address is registered — the
+// no-oracle contract is Supabase's own, and we honor it in the copy regardless.
+//
+// The result distinguishes three states so the controller renders honestly:
+//   { ok:true }                     → show the no-oracle "on its way" line
+//   { ok:false, rateLimited:true, message } → a 429; ask them to wait (honest)
+//   { ok:false, message }           → transport/server trouble; NEVER shown as sent
+export async function requestRecovery(
+  { supabaseUrl, publishableKey, email },
+  fetchImpl,
+) {
+  const doFetch = fetchImpl || (typeof fetch !== "undefined" ? fetch : null);
+  if (!doFetch) {
+    return { ok: false, message: "No network is available to send a reset link." };
+  }
+
+  const base = String(supabaseUrl || "").replace(/\/+$/, "");
+  const url = `${base}/auth/v1/recover`;
+
+  let res;
+  try {
+    res = await doFetch(url, {
+      method: "POST",
+      headers: {
+        apikey: publishableKey,
+        Authorization: `Bearer ${publishableKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ email }),
+    });
+  } catch {
+    // A transport failure is NOT a sent link. Say so plainly — never claim success.
+    return {
+      ok: false,
+      message: "The service could not be reached. Check your connection and try again.",
+    };
+  }
+
+  let body = null;
+  try {
+    body = await res.json();
+  } catch {
+    body = null;
+  }
+
+  if (res.ok) {
+    // 200 regardless of whether the address exists — the no-oracle contract holds.
+    return { ok: true };
+  }
+  if (res.status === 429) {
+    return {
+      ok: false,
+      rateLimited: true,
+      message: mapRecoveryError(res.status, body),
+    };
+  }
+  return { ok: false, message: mapRecoveryError(res.status, body) };
+}
+
+// Map a recover-endpoint failure to an honest line. The only state a visitor can
+// meaningfully hit is a rate limit; everything else is server/transport trouble that
+// must never read as "sent".
+export function mapRecoveryError(status, body) {
+  const raw =
+    (body && (body.error_description || body.msg || body.message || body.error)) || "";
+  const text = String(raw);
+  const lower = text.toLowerCase();
+
+  if (status === 429 || /rate limit|too many/i.test(lower)) {
+    return "Too many requests for now. Wait a little, then try again.";
+  }
+  if (text.trim().length > 0) return text.trim();
+  if (status >= 500) return "The service could not be reached. Try again shortly.";
+  return "The reset link could not be sent. Try again.";
+}
+
+// ── recovery-landing detection (pure) ─────────────────────────────────────────
+//
+// Supabase's reset email links back to the Site URL with the recovery token pair in
+// the URL FRAGMENT (hash), e.g.
+//   #access_token=…&refresh_token=…&expires_in=3600&type=recovery
+// We parse the fragment (never the query string — the token must never reach the
+// server or a log) and return the recovery context ONLY when it is a well-formed
+// recovery link carrying an access token. Absent or malformed → null (an ordinary
+// visit), so the threshold behaves exactly as before.
+export function parseRecoveryHash(hash) {
+  if (typeof hash !== "string" || hash.length === 0) return null;
+  // Accept a leading '#' or a bare fragment; reject anything that isn't a fragment.
+  const frag = hash.charAt(0) === "#" ? hash.slice(1) : hash;
+  if (frag.length === 0) return null;
+
+  let params;
+  try {
+    params = new URLSearchParams(frag);
+  } catch {
+    return null;
+  }
+
+  if (params.get("type") !== "recovery") return null;
+  const access_token = params.get("access_token") || "";
+  if (access_token.length === 0) return null;
+
+  return {
+    access_token,
+    refresh_token: params.get("refresh_token") || "",
+    type: "recovery",
+  };
+}
+
+// ── new-password validation (pure) ────────────────────────────────────────────
+//
+// The same honest floor as signup: a set password, at least MIN_PASSWORD_LENGTH,
+// confirmed to match. Supabase enforces the real policy server-side.
+export function validateNewPassword(input) {
+  const errors = {};
+  const password = typeof input?.password === "string" ? input.password : "";
+  const confirm = typeof input?.confirm === "string" ? input.confirm : "";
+
+  if (password.length === 0) {
+    errors.password = "Set a new password.";
+  } else if (password.length < MIN_PASSWORD_LENGTH) {
+    errors.password = `Use at least ${MIN_PASSWORD_LENGTH} characters.`;
+  }
+
+  if (confirm.length === 0) {
+    errors.confirm = "Repeat the new password.";
+  } else if (confirm !== password) {
+    errors.confirm = "The two passwords do not match.";
+  }
+
+  return { ok: Object.keys(errors).length === 0, errors };
+}
+
+// ── apply the new password (impure; fetch injected) ───────────────────────────
+//
+// PUT /auth/v1/user with { password } authenticated by the RECOVERY access token
+// (the token from the reset link, NOT the anon key — the anon key still travels as
+// apikey). On success Supabase returns the user; the caller already holds the token
+// pair from the hash, so we return that pair as a ready-to-store session. An expired
+// or already-used link comes back non-200 → { ok:false, expired:true } so the caller
+// offers to send another. A transport failure is never claimed as success.
+export async function updatePassword(
+  { supabaseUrl, publishableKey, accessToken, refreshToken, password, email },
+  fetchImpl,
+) {
+  const doFetch = fetchImpl || (typeof fetch !== "undefined" ? fetch : null);
+  if (!doFetch) {
+    return { ok: false, expired: false, message: "No network is available." };
+  }
+
+  const base = String(supabaseUrl || "").replace(/\/+$/, "");
+  const url = `${base}/auth/v1/user`;
+
+  let res;
+  try {
+    res = await doFetch(url, {
+      method: "PUT",
+      headers: {
+        apikey: publishableKey,
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ password }),
+    });
+  } catch {
+    // Transport failure is NOT an expired link — let them retry without losing the link.
+    return {
+      ok: false,
+      expired: false,
+      message: "The service could not be reached. Try again in a moment.",
+    };
+  }
+
+  let body = null;
+  try {
+    body = await res.json();
+  } catch {
+    body = null;
+  }
+
+  if (!res.ok) {
+    if (res.status === 429) {
+      return {
+        ok: false,
+        expired: false,
+        message: mapUpdatePasswordError(res.status, body),
+      };
+    }
+    // 401/403/422 on a recovery PUT means the link is expired, used, or invalid.
+    return { ok: false, expired: true, message: mapUpdatePasswordError(res.status, body) };
+  }
+
+  // The recovery token pair (from the hash) is the session for the now-signed-in user.
+  // Prefer the freshly-returned user's email; fall back to what the caller passed.
+  const userEmail =
+    (body && typeof body.email === "string" && body.email) || email || "";
+  const session = {
+    access_token: accessToken,
+    refresh_token: refreshToken || "",
+    email: userEmail,
+  };
+  return { ok: true, session };
+}
+
+// Map an update-password failure to an honest line. The recovery-specific state is
+// the expired/used link; a rate limit and generic trouble are handled honestly too.
+export function mapUpdatePasswordError(status, body) {
+  const raw =
+    (body && (body.error_description || body.msg || body.message || body.error)) || "";
+  const text = String(raw);
+  const lower = text.toLowerCase();
+
+  if (status === 429 || /rate limit|too many/i.test(lower)) {
+    return "Too many attempts for now. Wait a little, then try again.";
+  }
+  if (
+    /expired|invalid|not found|token|jwt|session/i.test(lower) ||
+    status === 401 ||
+    status === 403 ||
+    status === 422
+  ) {
+    return "This reset link has expired or already been used. Request a new one below.";
+  }
+  if (/password/i.test(lower) && /(weak|short|least|length|strength)/i.test(lower)) {
+    return "That password was rejected. Choose a longer one.";
+  }
+  if (text.trim().length > 0) return text.trim();
+  if (status >= 500) return "The service could not be reached. Try again shortly.";
+  return "The password could not be set. Request a new reset link below.";
+}
+
+// ── render (pure) ─────────────────────────────────────────────────────────────
+
+// The no-oracle acknowledgment after a recover request. It NEVER reveals whether an
+// account exists — the same line for a real address and an unknown one.
+export const RECOVERY_SENT_COPY =
+  "If that address is registered, a reset link is on its way.";
+
+export function renderRecoverySent() {
+  return `<div class="threshold-done" role="status">
+  <p class="threshold-done-lead">Check your email.</p>
+  <p>${escapeHtml(RECOVERY_SENT_COPY)}</p>
+  <p class="threshold-done-note">The link opens a page here to set a new password. It expires; if it has, request another.</p>
+</div>`;
+}

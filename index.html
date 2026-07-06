@@ -115,9 +115,72 @@
       <div class="form-error-slot" data-error-for="login-form"></div>
 
       <button type="submit">Log in</button>
+      <button type="button" class="threshold-switch" data-switch-to="recover">
+        Forgot password?
+      </button>
       <button type="button" class="threshold-switch" data-switch-to="signup">
         Need an account? Create one.
       </button>
+    </form>
+
+    <!-- The recover-email form. A visitor who lost their password enters their email;
+         we POST /auth/v1/recover and always show the same no-oracle line — we never
+         confirm or deny that the address is registered. -->
+    <form id="recover-form" class="threshold-form" novalidate autocomplete="off" hidden>
+      <div class="field">
+        <label for="recover-email">Email</label>
+        <input
+          id="recover-email"
+          name="email"
+          type="email"
+          autocomplete="email"
+          required
+        />
+        <span class="field-error-slot" data-error-for="recover-email"></span>
+      </div>
+
+      <div class="form-error-slot" data-error-for="recover-form"></div>
+
+      <button type="submit">Send a reset link</button>
+      <button type="button" class="threshold-switch" data-switch-to="login">
+        Back to sign in.
+      </button>
+    </form>
+
+    <!-- The set-new-password form. Shown only when the page loads on a recovery link
+         (type=recovery tokens in the URL hash). app.js detects the hash, reveals this
+         form, and applies the new password via PUT /auth/v1/user with the recovery
+         access token. -->
+    <form id="new-password-form" class="threshold-form" novalidate autocomplete="off" hidden>
+      <p class="threshold-form-lead">Set a new password for your account.</p>
+
+      <div class="field">
+        <label for="new-password">New password</label>
+        <input
+          id="new-password"
+          name="password"
+          type="password"
+          autocomplete="new-password"
+          required
+        />
+        <span class="field-error-slot" data-error-for="new-password"></span>
+      </div>
+
+      <div class="field">
+        <label for="new-password-confirm">Confirm new password</label>
+        <input
+          id="new-password-confirm"
+          name="confirm"
+          type="password"
+          autocomplete="new-password"
+          required
+        />
+        <span class="field-error-slot" data-error-for="new-password-confirm"></span>
+      </div>
+
+      <div class="form-error-slot" data-error-for="new-password-form"></div>
+
+      <button type="submit">Set new password</button>
     </form>
   </div>
 

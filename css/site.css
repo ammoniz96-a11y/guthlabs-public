@@ -97,6 +97,13 @@ body {
   display: none;
 }
 
+/* A short lead line above a form's fields (the set-new-password intro). */
+.threshold-form-lead {
+  margin: 0 0 0.4rem;
+  color: var(--ink-soft);
+  font-size: 1.02rem;
+}
+
 .field {
   display: flex;
   flex-direction: column;
