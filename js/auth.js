@@ -76,6 +76,26 @@ export function mapSignupError(status, body) {
   if (status === 429 || /rate limit|too many/i.test(lower)) {
     return "Too many attempts for now. Wait a little, then try again.";
   }
+  // LWO-9: the name is the identity. The migration-011 trigger rejects a signup whose
+  // name is already registered (citext UNIQUE / unique_violation) or reserved (the
+  // census + house words). Supabase surfaces the trigger's RAISE as a database error;
+  // we map the two name states to honest door-voice lines BEFORE the email-duplicate
+  // check, since a name collision is what the visitor will actually hit.
+  if (/that name is reserved|name is reserved|reserved/i.test(lower)) {
+    return "That name is reserved and cannot be registered at the door.";
+  }
+  if (
+    /a name is required|name is required/i.test(lower)
+  ) {
+    return "Choose a name to be known by.";
+  }
+  if (
+    /register_names|duplicate key|already exists.*name|name.*already|unique_violation|violates unique/i.test(
+      lower,
+    )
+  ) {
+    return "That name is already registered at the door.";
+  }
   if (
     /already registered|already been registered|user already exists|already in use/i.test(
       lower,
@@ -198,21 +218,26 @@ export async function signup(
 export const PASSWORD_MASK = "•".repeat(10); // "••••••••••"
 
 // The one localStorage key. Holds exactly the standard Supabase token pair plus the
-// email (needed to pre-fill the theatre). Nothing else — no username, no password,
-// no derived material.
+// NAME (needed to pre-fill the theatre and to acknowledge the name at the door).
+// Nothing else — NO email (LWO-9 demotes email to the hidden recovery rail; it never
+// enters localStorage), no password, no derived material.
 export const SESSION_KEY = "guthlabs.session";
 
 // ── session storage (pure over an injected storage) ───────────────────────────
 //
 // Storage is injected (localStorage in the browser, a plain object shim in tests) so
 // every path is unit-testable offline. A stored session is exactly:
-//   { access_token, refresh_token, email }
+//   { access_token, refresh_token, name }
 // and readSession refuses to return anything that does not carry both tokens — a
 // malformed or partial blob degrades to "no session", i.e. an honest real login.
+//
+// LWO-9: email is NOT stored. A session persisted by an older build may still carry an
+// `email` key; readSession ignores it and never returns it, so no email leaks out of a
+// legacy blob. The name is the only identity the theatre and the signed-in copy show.
 
-export function saveSession(storage, { access_token, refresh_token, email }) {
+export function saveSession(storage, { access_token, refresh_token, name }) {
   if (!storage || !access_token || !refresh_token) return;
-  const record = { access_token, refresh_token, email: email || "" };
+  const record = { access_token, refresh_token, name: name || "" };
   storage.setItem(SESSION_KEY, JSON.stringify(record));
 }
 
@@ -243,7 +268,7 @@ export function readSession(storage) {
   return {
     access_token: parsed.access_token,
     refresh_token: parsed.refresh_token,
-    email: typeof parsed.email === "string" ? parsed.email : "",
+    name: typeof parsed.name === "string" ? parsed.name : "",
   };
 }
 
@@ -256,59 +281,77 @@ export function clearSession(storage) {
   }
 }
 
-// Normalize the token pair a Supabase grant returns into the exact record we store.
-// Supabase returns access_token + refresh_token at the top level; the email lives on
-// the nested `user`. We keep only those three fields.
-function sessionFromGrant(body, fallbackEmail) {
+// Normalize the token pair a grant returns into the exact record we store. Supabase
+// returns access_token + refresh_token at the top level. LWO-9: the NAME is the
+// identity we keep — and the grant body does NOT carry it (the door-login function
+// resolves name→email server-side and never echoes either back to the browser). So
+// the name comes from the caller: what the visitor typed on login, or the name held
+// in the stored session on resume. The email on the grant's `user` object is
+// deliberately IGNORED — it never enters storage.
+function sessionFromGrant(body, name) {
   if (!body) return null;
   const access_token = typeof body.access_token === "string" ? body.access_token : "";
   const refresh_token =
     typeof body.refresh_token === "string" ? body.refresh_token : "";
   if (!access_token || !refresh_token) return null;
-  const email =
-    (body.user && typeof body.user.email === "string" && body.user.email) ||
-    fallbackEmail ||
-    "";
-  return { access_token, refresh_token, email };
+  return { access_token, refresh_token, name: name || "" };
 }
 
-// ── mapping a login error to an honest human line (pure) ──────────────────────
-//
-// The two states a returning visitor actually hits are wrong credentials and an
-// unconfirmed email. Supabase surfaces these as `error_description` / `msg`; we
-// translate them into plain sentences, never a raw code, never a false reassurance.
-export function mapLoginError(status, body) {
-  const raw =
-    (body && (body.error_description || body.msg || body.message || body.error)) || "";
-  const text = String(raw);
-  const lower = text.toLowerCase();
+// The uniform refusal for BOTH an unknown name and a wrong password — the site-side
+// twin of the door-login edge function's UNIFORM_REFUSAL. No name-enumeration oracle:
+// the returning visitor is never told whether the name exists, only that name + word
+// do not match the register.
+export const NAME_LOGIN_REFUSAL = "That name and word do not match the register.";
 
-  if (status === 429 || /rate limit|too many/i.test(lower)) {
+// ── mapping a NAME-login error to an honest human line (pure) ─────────────────
+//
+// LWO-9: cold login runs on the NAME through the door-login edge function. The two
+// states a returning visitor actually hits are a mismatch (unknown name OR wrong
+// password — uniform, no oracle) and an unconfirmed email (honest pass-through). The
+// edge function returns a small typed shape { error, message }; we translate its
+// codes into door-voice lines. A raw 400 mismatch always yields the uniform refusal.
+export function mapLoginError(status, body) {
+  const code = (body && typeof body.error === "string" && body.error) || "";
+  const raw =
+    (body && (body.message || body.error_description || body.msg)) || "";
+  const text = String(raw);
+  const lower = (text + " " + code).toLowerCase();
+
+  if (status === 429 || code === "rate_limited" || /rate limit|too many/i.test(lower)) {
     return "Too many attempts for now. Wait a little, then try again.";
   }
-  if (/email not confirmed|not confirmed|confirm your email/i.test(lower)) {
-    return "That email has not been confirmed yet. Check your inbox for the confirmation link.";
-  }
   if (
-    /invalid login credentials|invalid grant|invalid_grant|wrong|incorrect/i.test(
-      lower,
-    )
+    code === "email_not_confirmed" ||
+    /email not confirmed|not confirmed|confirm your email/i.test(lower)
   ) {
-    return "That email and password do not match an account.";
+    return "That name's email has not been confirmed yet. Check the inbox for the confirmation link.";
   }
-  if (text.trim().length > 0) return text.trim();
+  // Any other 400/401/403 mismatch is the uniform refusal — the door reveals nothing
+  // about whether the name exists.
+  if (status === 400 || status === 401 || status === 403 || code === "invalid_grant") {
+    return NAME_LOGIN_REFUSAL;
+  }
   if (status >= 500) return "The service could not be reached. Try again shortly.";
-  return "Could not sign in. Check the email and password, then try again.";
+  // A rare unmapped state: prefer the uniform refusal over leaking a server string,
+  // so the door still speaks with one voice.
+  return NAME_LOGIN_REFUSAL;
 }
 
-// ── login: the password grant (impure; fetch injected) ────────────────────────
+// ── login: the NAME → session exchange via the door-login edge function ───────
 //
-// POST /auth/v1/token?grant_type=password with { email, password } and the anon
-// (publishable) key. On success, returns { ok:true, session } — the standard token
-// pair + email, ready to store. On failure, an honest mapped message. Never throws
-// for an HTTP error; a transport failure is wrapped as { ok:false, message }.
+// LWO-9: the identity at the door is the NAME. POST { name, password } to the
+// door-login edge function, which resolves name→email server-side (service role),
+// runs the GoTrue password grant, and returns the standard token pair. The email
+// never touches the browser. On success we attach the visitor's own NAME (what they
+// typed) to the session — the grant body carries no name. On failure, the uniform
+// refusal or an honest pass-through (unconfirmed / rate limit). Never throws for an
+// HTTP error; a transport failure is wrapped as { ok:false, message }.
+//
+// The endpoint URL is derived from SUPABASE_URL: <base>/functions/v1/door-login. The
+// publishable (anon) key travels as apikey — the edge gateway requires a project key
+// to route, but the function itself does the privileged work under the service role.
 export async function login(
-  { supabaseUrl, publishableKey, email, password },
+  { supabaseUrl, publishableKey, name, password },
   fetchImpl,
 ) {
   const doFetch = fetchImpl || (typeof fetch !== "undefined" ? fetch : null);
@@ -317,7 +360,7 @@ export async function login(
   }
 
   const base = String(supabaseUrl || "").replace(/\/+$/, "");
-  const url = `${base}/auth/v1/token?grant_type=password`;
+  const url = `${base}/functions/v1/door-login`;
 
   let res;
   try {
@@ -328,7 +371,7 @@ export async function login(
         Authorization: `Bearer ${publishableKey}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ name, password }),
     });
   } catch {
     return {
@@ -348,7 +391,9 @@ export async function login(
     return { ok: false, message: mapLoginError(res.status, body) };
   }
 
-  const session = sessionFromGrant(body, email);
+  // Attach the visitor's own NAME — the grant body carries only tokens (+ a `user`
+  // object we ignore). No email is read from the response.
+  const session = sessionFromGrant(body, name);
   if (!session) {
     return { ok: false, message: "The sign-in response was incomplete. Try again." };
   }
@@ -364,7 +409,7 @@ export async function login(
 // expired/revoked → { ok:false, expired:true } so the caller degrades honestly to a
 // real login form. Never throws for an HTTP error.
 export async function resumeSession(
-  { supabaseUrl, publishableKey, refresh_token, email },
+  { supabaseUrl, publishableKey, refresh_token, name },
   fetchImpl,
 ) {
   const doFetch = fetchImpl || (typeof fetch !== "undefined" ? fetch : null);
@@ -408,7 +453,8 @@ export async function resumeSession(
     return { ok: false, expired: true };
   }
 
-  const session = sessionFromGrant(body, email);
+  // The refresh grant carries no name; carry the stored name forward unchanged.
+  const session = sessionFromGrant(body, name);
   if (!session) {
     return { ok: false, expired: true };
   }
@@ -418,10 +464,11 @@ export async function resumeSession(
 // ── render (pure) ─────────────────────────────────────────────────────────────
 
 // The signed-in acknowledgment that replaces the form once a session resumes (or a
-// fresh login succeeds). Honest: it registers a name at a door that has not yet
-// opened — it never claims access to features that do not exist.
-export function renderSignedIn(email) {
-  const who = escapeHtml(email || "");
+// fresh login succeeds). LWO-9: the door acknowledges the NAME — "your name is
+// registered at the door" becomes literal. Honest: it registers a name at a door that
+// has not yet opened; it never claims access to features that do not exist.
+export function renderSignedIn(name) {
+  const who = escapeHtml(name || "");
   const line = who
     ? `Your name is registered at the door, ${who}.`
     : "Your name is registered at the door.";
@@ -595,7 +642,7 @@ export function validateNewPassword(input) {
 // or already-used link comes back non-200 → { ok:false, expired:true } so the caller
 // offers to send another. A transport failure is never claimed as success.
 export async function updatePassword(
-  { supabaseUrl, publishableKey, accessToken, refreshToken, password, email },
+  { supabaseUrl, publishableKey, accessToken, refreshToken, password, name },
   fetchImpl,
 ) {
   const doFetch = fetchImpl || (typeof fetch !== "undefined" ? fetch : null);
@@ -646,13 +693,21 @@ export async function updatePassword(
   }
 
   // The recovery token pair (from the hash) is the session for the now-signed-in user.
-  // Prefer the freshly-returned user's email; fall back to what the caller passed.
-  const userEmail =
-    (body && typeof body.email === "string" && body.email) || email || "";
+  // LWO-9: the session carries the NAME, never the email. PUT /auth/v1/user returns
+  // the user object; the registered name lives on user_metadata.username. Read it
+  // there so the signed-in state still acknowledges the name at the door; the email
+  // never enters the session. `name` may be passed by the caller as a fallback.
+  const metaName =
+    (body &&
+      body.user_metadata &&
+      typeof body.user_metadata.username === "string" &&
+      body.user_metadata.username) ||
+    name ||
+    "";
   const session = {
     access_token: accessToken,
     refresh_token: refreshToken || "",
-    email: userEmail,
+    name: metaName,
   };
   return { ok: true, session };
 }

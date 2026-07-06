@@ -323,9 +323,10 @@ export function mountThreshold() {
     wireNewPasswordForm(recovery);
     showMode("new-password");
   } else if (stored && loginForm) {
-    const emailInput = loginForm.elements.email;
+    // LWO-9: the theatre pre-fills the NAME (the identity at the door), not the email.
+    const nameInput = loginForm.elements.name;
     const pwInput = loginForm.elements.password;
-    if (emailInput) emailInput.value = stored.email || "";
+    if (nameInput) nameInput.value = stored.name || "";
     if (pwInput) {
       pwInput.value = PASSWORD_MASK;
       masked = true;
@@ -400,14 +401,14 @@ export function mountThreshold() {
             supabaseUrl: CONFIG.SUPABASE_URL,
             publishableKey: CONFIG.PUBLISHABLE_KEY,
             refresh_token: stored.refresh_token,
-            email: stored.email,
+            name: stored.name,
           },
           browserFetch(),
         );
 
         if (result.ok) {
           saveSession(storage, result.session); // store the rotated token pair
-          replacePanel(panel, renderSignedIn(result.session.email));
+          replacePanel(panel, renderSignedIn(result.session.name));
           return;
         }
         if (result.expired) {
@@ -432,11 +433,11 @@ export function mountThreshold() {
         return;
       }
 
-      // The real login path: an actual email + password grant.
-      const email = (loginForm.elements.email?.value ?? "").trim();
+      // The real login path: a NAME + password exchange via the door-login function.
+      const name = (loginForm.elements.name?.value ?? "").trim();
       const password = loginForm.elements.password?.value ?? "";
-      if (email.length === 0 || password.length === 0) {
-        setFormError(loginForm, "Enter your email and password.");
+      if (name.length === 0 || password.length === 0) {
+        setFormError(loginForm, "Enter your name and password.");
         return;
       }
 
@@ -445,7 +446,7 @@ export function mountThreshold() {
         {
           supabaseUrl: CONFIG.SUPABASE_URL,
           publishableKey: CONFIG.PUBLISHABLE_KEY,
-          email,
+          name,
           password,
         },
         browserFetch(),
@@ -453,7 +454,7 @@ export function mountThreshold() {
 
       if (result.ok) {
         saveSession(storage, result.session);
-        replacePanel(panel, renderSignedIn(result.session.email));
+        replacePanel(panel, renderSignedIn(result.session.name));
         return;
       }
       setFormError(loginForm, result.message);
@@ -549,7 +550,7 @@ export function mountThreshold() {
         } catch {
           /* clearing the hash is best-effort; the session is already stored */
         }
-        replacePanel(panel, renderSignedIn(result.session.email));
+        replacePanel(panel, renderSignedIn(result.session.name));
         return;
       }
 

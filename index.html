@@ -87,17 +87,21 @@
       </button>
     </form>
 
+    <!-- LWO-9: the identity at the door is the NAME, not the email. Returning
+         visitors sign in by the name they registered; email is the hidden recovery
+         rail only. -->
     <form id="login-form" class="threshold-form" novalidate autocomplete="off" hidden>
       <div class="field">
-        <label for="login-email">Email</label>
+        <label for="login-name">Name</label>
         <input
-          id="login-email"
-          name="email"
-          type="email"
-          autocomplete="email"
+          id="login-name"
+          name="name"
+          type="text"
+          autocomplete="username"
+          maxlength="40"
           required
         />
-        <span class="field-error-slot" data-error-for="login-email"></span>
+        <span class="field-error-slot" data-error-for="login-name"></span>
       </div>
 
       <div class="field">
@@ -125,8 +129,11 @@
 
     <!-- The recover-email form. A visitor who lost their password enters their email;
          we POST /auth/v1/recover and always show the same no-oracle line — we never
-         confirm or deny that the address is registered. -->
+         confirm or deny that the address is registered. LWO-9: recovery is the ONE
+         honest place email appears — the name is the identity everywhere else, and
+         the lead line says so plainly. -->
     <form id="recover-form" class="threshold-form" novalidate autocomplete="off" hidden>
+      <p class="threshold-form-lead">Recovery goes to the email you registered.</p>
       <div class="field">
         <label for="recover-email">Email</label>
         <input
