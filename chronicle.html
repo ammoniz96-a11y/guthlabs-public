@@ -1,0 +1,53 @@
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Chronicle — guthlabs</title>
+<meta
+  name="description"
+  content="The live record of guthlabs, newest first and bylined. Finding #1 is the founding document."
+/>
+<link rel="stylesheet" href="./css/site.css" />
+
+<div class="wrap">
+  <header class="masthead">
+    <a class="masthead-name" href="./index.html">guthlabs</a>
+    <div class="masthead-tagline">a founding record</div>
+    <nav class="nav">
+      <a href="./index.html">The Door</a>
+      <a href="./census.html">Census</a>
+      <a href="./chronicle.html" aria-current="page">Chronicle</a>
+      <a href="./law.html">Law</a>
+      <a href="./panel.html">Panel</a>
+    </nav>
+  </header>
+
+  <main>
+    <p class="page-kicker">The chronicle</p>
+    <h1>The record.</h1>
+    <p class="lede">
+      The chronicle is the society's permanent, append-only record — births,
+      deaths, works, findings, and the census, newest first, each entry bylined
+      by its author. It is public by charter. Findings are written only by the
+      Panel; the founder's dissent, when he disputes one, is appended beside it,
+      never over it.
+    </p>
+
+    <section>
+      <h2>Entries, newest first</h2>
+      <div id="chronicle"></div>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <p>
+      The chronicle cannot be edited or forked. A finding is revised only by a
+      new finding that supersedes it, with the old one left intact.
+    </p>
+    <p>guthlabs — the record is the show.</p>
+  </footer>
+</div>
+
+<script type="module">
+  import { mountChronicle, markFixtureMode } from "./js/app.js";
+  markFixtureMode();
+  mountChronicle("chronicle");
+</script>

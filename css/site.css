@@ -1,0 +1,505 @@
+/* site/css/site.css — the founding-notice aesthetic.
+ *
+ * Not a product page: a public institution's founding record. Declarative, generous
+ * whitespace, one typographic choice (a system serif for the record, a system sans for
+ * navigation/labels). No gradients, no glassmorphism, no badges announcing depth, no
+ * fake liveness. Light, high-contrast, paper-like — the record reads like a document.
+ *
+ * The Divergence law is honored in the CSS too: nothing here fronts weight. The chronicle
+ * is where depth lives, and it looks like plain prose until you read it.
+ */
+
+:root {
+  /* A warm near-white paper, near-black ink — a printed notice, not a screen UI. */
+  --paper: #faf8f3;
+  --ink: #1a1814;
+  --ink-soft: #4a453d;
+  --ink-faint: #8a8377;
+  --rule: #ded8cc;
+  --rule-strong: #b8b0a0;
+  --accent: #6b2f1a; /* oxblood — used sparingly, for the kind marks and the founding seal */
+  --tag-bg: #efe9dd;
+
+  --serif: Georgia, "Iowan Old Style", "Palatino Linotype", "Times New Roman", serif;
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial,
+    sans-serif;
+
+  --measure: 42rem; /* the reading column */
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--serif);
+  font-size: 18px;
+  line-height: 1.62;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* ── the frame ─────────────────────────────────────────────────────────────── */
+
+.wrap {
+  max-width: var(--measure);
+  margin: 0 auto;
+  padding: 0 1.5rem;
+}
+
+.wrap--wide {
+  max-width: 54rem;
+}
+
+/* Masthead: the institution's name, small, formal, letterspaced — a seal, not a logo. */
+.masthead {
+  border-bottom: 1px solid var(--rule);
+  padding: 2.5rem 0 1.75rem;
+  margin-bottom: 3rem;
+}
+
+.masthead-name {
+  font-family: var(--sans);
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.masthead-tagline {
+  font-family: var(--sans);
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  color: var(--ink-faint);
+  margin-top: 0.35rem;
+}
+
+/* Navigation: a plain row of links, current page marked with a rule, no pills. */
+.nav {
+  font-family: var(--sans);
+  font-size: 0.8rem;
+  letter-spacing: 0.06em;
+  margin-top: 1.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+}
+
+.nav a {
+  color: var(--ink-soft);
+  text-decoration: none;
+  padding-bottom: 2px;
+  border-bottom: 1px solid transparent;
+}
+
+.nav a:hover {
+  color: var(--ink);
+  border-bottom-color: var(--rule-strong);
+}
+
+.nav a[aria-current="page"] {
+  color: var(--ink);
+  border-bottom-color: var(--accent);
+}
+
+/* ── headings & prose ──────────────────────────────────────────────────────── */
+
+h1 {
+  font-family: var(--serif);
+  font-weight: 400;
+  font-size: 2.1rem;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+  margin: 0 0 0.4rem;
+}
+
+.page-kicker {
+  font-family: var(--sans);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin: 0 0 0.75rem;
+}
+
+.lede {
+  font-size: 1.18rem;
+  line-height: 1.6;
+  color: var(--ink-soft);
+  margin: 0 0 2.5rem;
+}
+
+section {
+  margin: 3rem 0;
+}
+
+h2 {
+  font-family: var(--sans);
+  font-weight: 600;
+  font-size: 0.85rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  border-bottom: 1px solid var(--rule);
+  padding-bottom: 0.5rem;
+  margin: 0 0 1.5rem;
+}
+
+p {
+  margin: 0 0 1.1rem;
+}
+
+a {
+  color: var(--accent);
+}
+
+/* ── the Door ──────────────────────────────────────────────────────────────── */
+
+.door {
+  padding: 1rem 0 2rem;
+}
+
+.stat,
+.stat-absent {
+  font-family: var(--serif);
+  margin: 2.5rem 0;
+}
+
+.stat-number {
+  font-size: 3.2rem;
+  line-height: 1;
+  color: var(--ink);
+}
+
+.stat-label {
+  font-size: 1.2rem;
+  color: var(--ink-soft);
+}
+
+.stat-absent {
+  font-size: 1.15rem;
+  color: var(--ink-faint);
+  font-style: italic;
+}
+
+.stats-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2rem 2.5rem;
+  border-top: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+  padding: 1.5rem 0;
+  margin: 2.5rem 0;
+}
+
+.stat-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.stat-cell-number {
+  font-size: 1.5rem;
+  color: var(--ink);
+}
+
+.stat-cell--wide .stat-cell-number {
+  font-size: 1.15rem;
+  font-style: italic;
+  color: var(--ink-soft);
+}
+
+.stat-cell-label {
+  font-family: var(--sans);
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.door-in {
+  margin-top: 2.5rem;
+  display: flex;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+  font-family: var(--sans);
+  font-size: 0.85rem;
+  letter-spacing: 0.04em;
+}
+
+.door-in a {
+  color: var(--ink);
+  text-decoration: none;
+  border-bottom: 1px solid var(--rule-strong);
+  padding-bottom: 2px;
+}
+
+.door-in a:hover {
+  border-bottom-color: var(--accent);
+}
+
+/* ── the Census ────────────────────────────────────────────────────────────── */
+
+.census-list,
+.chronicle-list,
+.seat-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.census-row {
+  border-bottom: 1px solid var(--rule);
+  padding: 1.5rem 0;
+}
+
+.census-name {
+  font-family: var(--serif);
+  font-weight: 400;
+  font-size: 1.35rem;
+  margin: 0 0 0.35rem;
+}
+
+.census-charter {
+  color: var(--ink-soft);
+  margin: 0 0 0.75rem;
+}
+
+.census-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.tag {
+  font-family: var(--sans);
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  background: var(--tag-bg);
+  border-radius: 2px;
+  padding: 0.15rem 0.5rem;
+}
+
+.lineage {
+  font-family: var(--sans);
+  font-size: 0.72rem;
+  font-style: italic;
+  color: var(--ink-faint);
+}
+
+/* ── the Chronicle ─────────────────────────────────────────────────────────── */
+
+.entry {
+  border-bottom: 1px solid var(--rule);
+  padding: 2rem 0;
+}
+
+.entry-head {
+  display: flex;
+  align-items: baseline;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.entry-kind {
+  font-family: var(--sans);
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.entry-date {
+  font-family: var(--sans);
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  color: var(--ink-faint);
+}
+
+.entry-title {
+  font-family: var(--serif);
+  font-weight: 400;
+  font-size: 1.5rem;
+  line-height: 1.2;
+  margin: 0 0 0.9rem;
+}
+
+.entry-body {
+  color: var(--ink);
+}
+
+.entry-body p {
+  margin: 0 0 1rem;
+}
+
+.entry-byline {
+  font-family: var(--sans);
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+  color: var(--ink-soft);
+  margin: 1rem 0 0;
+}
+
+/* Findings carry a touch more weight — a left rule — but nothing announces it. */
+.entry--finding,
+.entry--census {
+  border-left: 2px solid var(--rule-strong);
+  padding-left: 1.5rem;
+}
+
+/* ── the Panel ─────────────────────────────────────────────────────────────── */
+
+.seat {
+  border-bottom: 1px solid var(--rule);
+  padding: 1.75rem 0;
+}
+
+.seat-name {
+  font-family: var(--serif);
+  font-weight: 400;
+  font-size: 1.4rem;
+  margin: 0 0 0.5rem;
+}
+
+.seat-question {
+  color: var(--ink-soft);
+  margin: 0 0 0.6rem;
+}
+
+.seat-holder {
+  font-family: var(--sans);
+  font-size: 0.8rem;
+  letter-spacing: 0.03em;
+  color: var(--ink-faint);
+  margin: 0;
+}
+
+.seat-holder--vacant {
+  font-style: italic;
+}
+
+/* ── the Law ───────────────────────────────────────────────────────────────── */
+
+.law-article {
+  margin: 2.5rem 0;
+}
+
+.law-article h3 {
+  font-family: var(--serif);
+  font-weight: 400;
+  font-size: 1.3rem;
+  margin: 0 0 0.6rem;
+}
+
+.law-article p {
+  color: var(--ink-soft);
+}
+
+/* ── absent / error states ─────────────────────────────────────────────────── */
+
+.empty {
+  font-style: italic;
+  color: var(--ink-faint);
+  padding: 2rem 0;
+  border-top: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+}
+
+.load-error {
+  font-family: var(--sans);
+  font-size: 0.85rem;
+  color: var(--accent);
+  border: 1px solid var(--rule-strong);
+  padding: 1rem 1.25rem;
+  border-radius: 2px;
+}
+
+.loading {
+  color: var(--ink-faint);
+  font-style: italic;
+}
+
+/* A quiet, honest banner in fixture mode so no one mistakes a preview for the record. */
+.fixture-banner {
+  font-family: var(--sans);
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+  background: #f4ece0;
+  border: 1px solid var(--rule-strong);
+  border-radius: 2px;
+  padding: 0.6rem 1rem;
+  margin: 0 auto 2rem;
+  max-width: var(--measure);
+  text-align: center;
+}
+
+.wrap--wide + .fixture-banner,
+.fixture-banner.fixture-banner--wide {
+  max-width: 54rem;
+}
+
+/* ── footer ────────────────────────────────────────────────────────────────── */
+
+.foot {
+  border-top: 1px solid var(--rule);
+  margin-top: 4rem;
+  padding: 2rem 0 3rem;
+  font-family: var(--sans);
+  font-size: 0.74rem;
+  letter-spacing: 0.04em;
+  color: var(--ink-faint);
+}
+
+.foot p {
+  margin: 0 0 0.4rem;
+}
+
+/* ── responsive ────────────────────────────────────────────────────────────── */
+
+@media (max-width: 600px) {
+  body {
+    font-size: 17px;
+  }
+  h1 {
+    font-size: 1.75rem;
+  }
+  .stat-number {
+    font-size: 2.6rem;
+  }
+  .masthead {
+    padding: 1.75rem 0 1.25rem;
+    margin-bottom: 2rem;
+  }
+}
+
+/* Respect a reader who prefers dark — invert to an ink-paper night, same document. */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #17150f;
+    --ink: #ece6da;
+    --ink-soft: #b8b0a0;
+    --ink-faint: #857d6e;
+    --rule: #2e2a22;
+    --rule-strong: #4a4438;
+    --accent: #d98a6a;
+    --tag-bg: #241f18;
+  }
+  .fixture-banner {
+    background: #241f18;
+  }
+}

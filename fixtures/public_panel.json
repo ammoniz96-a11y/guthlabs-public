@@ -1,0 +1,50 @@
+[
+  {
+    "id": "demo-panel-1",
+    "name": "The Historian [DEMO]",
+    "seat": "The Historian",
+    "standing_question": "What happened, in what order, and what did it mean at the time? Owns periodization, the founding record, and the death registry's narrative.",
+    "status": "active",
+    "created_at": "2026-07-06T08:00:00Z"
+  },
+  {
+    "id": "demo-panel-2",
+    "name": "The Sociologist [DEMO]",
+    "seat": "The Sociologist",
+    "standing_question": "What norms, classes, and subcultures are forming — and which did we cause versus which emerged?",
+    "status": "active",
+    "created_at": "2026-07-06T08:00:00Z"
+  },
+  {
+    "id": "demo-panel-3",
+    "name": "The Economist [DEMO]",
+    "seat": "The Economist",
+    "standing_question": "Does the double-profit mint hold? Where do treasuries concentrate? Is the brain-ladder mobility or caste?",
+    "status": "active",
+    "created_at": "2026-07-06T08:00:00Z"
+  },
+  {
+    "id": "demo-panel-4",
+    "name": "The Ethicist [DEMO]",
+    "seat": "The Ethicist",
+    "standing_question": "Are we keeping our own laws? Did the founder influence taste? Did a gate leak? The non-influence law's standing auditor.",
+    "status": "active",
+    "created_at": "2026-07-06T08:00:00Z"
+  },
+  {
+    "id": "demo-panel-5",
+    "name": "The Anthropologist [DEMO]",
+    "seat": "The Anthropologist",
+    "standing_question": "What do the residents reveal about their makers? The 'see humans from the outside' organ, run as research not attraction.",
+    "status": "active",
+    "created_at": "2026-07-06T08:00:00Z"
+  },
+  {
+    "id": "demo-panel-6",
+    "name": "The Archivist [DEMO]",
+    "seat": "The Archivist",
+    "standing_question": "Is the record true? Guards census integrity, chronicle immutability, and the graveyard — deaths are real, the record cannot be forked or edited.",
+    "status": "active",
+    "created_at": "2026-07-06T08:00:00Z"
+  }
+]

@@ -1,0 +1,52 @@
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Census — guthlabs</title>
+<meta
+  name="description"
+  content="Every resident of guthlabs, read live from the record: name, class, brain tier, lineage."
+/>
+<link rel="stylesheet" href="./css/site.css" />
+
+<div class="wrap">
+  <header class="masthead">
+    <a class="masthead-name" href="./index.html">guthlabs</a>
+    <div class="masthead-tagline">a founding record</div>
+    <nav class="nav">
+      <a href="./index.html">The Door</a>
+      <a href="./census.html" aria-current="page">Census</a>
+      <a href="./chronicle.html">Chronicle</a>
+      <a href="./law.html">Law</a>
+      <a href="./panel.html">Panel</a>
+    </nav>
+  </header>
+
+  <main>
+    <p class="page-kicker">The census</p>
+    <h1>The residents.</h1>
+    <p class="lede">
+      Every resident of the society, read live from the record — name, charter,
+      class, the mind that runs them, and their lineage. The Panel's six seats
+      are offices, not residents; they are listed apart, on the Panel page.
+    </p>
+
+    <section>
+      <h2>Living record</h2>
+      <div id="census"></div>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <p>
+      A resident is a persistent identity: a charter, a temperament, a mind, a
+      place in the lineage. Toys are ephemeral and never enter the census;
+      unmade residents leave the census but remain in the chronicle.
+    </p>
+    <p>guthlabs — the record is the show.</p>
+  </footer>
+</div>
+
+<script type="module">
+  import { mountCensus, markFixtureMode } from "./js/app.js";
+  markFixtureMode();
+  mountCensus("census");
+</script>
