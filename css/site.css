@@ -92,6 +92,11 @@ body {
   padding-top: 2.5rem;
 }
 
+/* [hidden] must win over the flex display above — the inactive form is truly gone. */
+.threshold-form[hidden] {
+  display: none;
+}
+
 .field {
   display: flex;
   flex-direction: column;
@@ -166,6 +171,26 @@ body {
   cursor: default;
 }
 
+/* The quiet switch between create-account and sign-in. A plain text button, not a
+   second call to action — it stays out of the way. */
+.threshold-switch {
+  font-family: var(--sans);
+  font-size: 0.8rem;
+  color: var(--ink-faint);
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid transparent;
+  padding: 0.2rem 0;
+  cursor: pointer;
+  align-self: flex-start;
+  margin-top: 0.2rem;
+}
+
+.threshold-switch:hover {
+  color: var(--ink-soft);
+  border-bottom-color: var(--rule-strong);
+}
+
 /* ── the honest success state (replaces the form) ──────────────────────────── */
 
 .threshold-done {
@@ -181,6 +206,11 @@ body {
 .threshold-done p:last-child {
   color: var(--ink-soft);
   margin: 0;
+}
+
+.threshold-done-note {
+  color: var(--ink-faint);
+  font-size: 1rem;
 }
 
 /* ── the one quiet way into the record ─────────────────────────────────────── */

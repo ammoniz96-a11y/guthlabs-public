@@ -174,3 +174,260 @@ export async function signup(
   }
   return { ok: true, body };
 }
+
+// ══════════════════════════════════════════════════════════════════════════════
+// LWO-5 — returning-visitor login, session storage, and the remember-me theatre
+// ══════════════════════════════════════════════════════════════════════════════
+//
+// Two truths held together:
+//   - Under the hood: conventional Supabase auth. A password grant on real login,
+//     a refresh-token grant on return, the standard token pair in localStorage.
+//   - On the surface: the Divergence (TONE Law 1). A return visitor sees the SAME
+//     threshold, their email already filled in, the password field showing a fixed
+//     mask, and one button: "login". Old-school, pre-keychain, slightly eerie.
+//
+// The security is ordinary; the eeriness is the point. The real password is NEVER
+// stored — not in plaintext, not hashed, not derivable. The mask is a constant with
+// no relation to any password; the "login" click resumes the session via the stored
+// refresh token, so no password is sent because none is needed.
+
+// The fixed password mask. A constant string of 10 bullet characters, chosen once,
+// unrelated to any real password. It is only ever a VISUAL fill on a return visit;
+// it is never sent to any endpoint, never compared to a password, never derived from
+// one. Its length is fixed at 10 so it leaks nothing about the true password length.
+export const PASSWORD_MASK = "•".repeat(10); // "••••••••••"
+
+// The one localStorage key. Holds exactly the standard Supabase token pair plus the
+// email (needed to pre-fill the theatre). Nothing else — no username, no password,
+// no derived material.
+export const SESSION_KEY = "guthlabs.session";
+
+// ── session storage (pure over an injected storage) ───────────────────────────
+//
+// Storage is injected (localStorage in the browser, a plain object shim in tests) so
+// every path is unit-testable offline. A stored session is exactly:
+//   { access_token, refresh_token, email }
+// and readSession refuses to return anything that does not carry both tokens — a
+// malformed or partial blob degrades to "no session", i.e. an honest real login.
+
+export function saveSession(storage, { access_token, refresh_token, email }) {
+  if (!storage || !access_token || !refresh_token) return;
+  const record = { access_token, refresh_token, email: email || "" };
+  storage.setItem(SESSION_KEY, JSON.stringify(record));
+}
+
+export function readSession(storage) {
+  if (!storage) return null;
+  let raw;
+  try {
+    raw = storage.getItem(SESSION_KEY);
+  } catch {
+    return null;
+  }
+  if (!raw) return null;
+  let parsed;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return null;
+  }
+  if (
+    !parsed ||
+    typeof parsed.access_token !== "string" ||
+    typeof parsed.refresh_token !== "string" ||
+    parsed.access_token.length === 0 ||
+    parsed.refresh_token.length === 0
+  ) {
+    return null;
+  }
+  return {
+    access_token: parsed.access_token,
+    refresh_token: parsed.refresh_token,
+    email: typeof parsed.email === "string" ? parsed.email : "",
+  };
+}
+
+export function clearSession(storage) {
+  if (!storage) return;
+  try {
+    storage.removeItem(SESSION_KEY);
+  } catch {
+    /* nothing to clear */
+  }
+}
+
+// Normalize the token pair a Supabase grant returns into the exact record we store.
+// Supabase returns access_token + refresh_token at the top level; the email lives on
+// the nested `user`. We keep only those three fields.
+function sessionFromGrant(body, fallbackEmail) {
+  if (!body) return null;
+  const access_token = typeof body.access_token === "string" ? body.access_token : "";
+  const refresh_token =
+    typeof body.refresh_token === "string" ? body.refresh_token : "";
+  if (!access_token || !refresh_token) return null;
+  const email =
+    (body.user && typeof body.user.email === "string" && body.user.email) ||
+    fallbackEmail ||
+    "";
+  return { access_token, refresh_token, email };
+}
+
+// ── mapping a login error to an honest human line (pure) ──────────────────────
+//
+// The two states a returning visitor actually hits are wrong credentials and an
+// unconfirmed email. Supabase surfaces these as `error_description` / `msg`; we
+// translate them into plain sentences, never a raw code, never a false reassurance.
+export function mapLoginError(status, body) {
+  const raw =
+    (body && (body.error_description || body.msg || body.message || body.error)) || "";
+  const text = String(raw);
+  const lower = text.toLowerCase();
+
+  if (status === 429 || /rate limit|too many/i.test(lower)) {
+    return "Too many attempts for now. Wait a little, then try again.";
+  }
+  if (/email not confirmed|not confirmed|confirm your email/i.test(lower)) {
+    return "That email has not been confirmed yet. Check your inbox for the confirmation link.";
+  }
+  if (
+    /invalid login credentials|invalid grant|invalid_grant|wrong|incorrect/i.test(
+      lower,
+    )
+  ) {
+    return "That email and password do not match an account.";
+  }
+  if (text.trim().length > 0) return text.trim();
+  if (status >= 500) return "The service could not be reached. Try again shortly.";
+  return "Could not sign in. Check the email and password, then try again.";
+}
+
+// ── login: the password grant (impure; fetch injected) ────────────────────────
+//
+// POST /auth/v1/token?grant_type=password with { email, password } and the anon
+// (publishable) key. On success, returns { ok:true, session } — the standard token
+// pair + email, ready to store. On failure, an honest mapped message. Never throws
+// for an HTTP error; a transport failure is wrapped as { ok:false, message }.
+export async function login(
+  { supabaseUrl, publishableKey, email, password },
+  fetchImpl,
+) {
+  const doFetch = fetchImpl || (typeof fetch !== "undefined" ? fetch : null);
+  if (!doFetch) {
+    return { ok: false, message: "No network is available to sign in." };
+  }
+
+  const base = String(supabaseUrl || "").replace(/\/+$/, "");
+  const url = `${base}/auth/v1/token?grant_type=password`;
+
+  let res;
+  try {
+    res = await doFetch(url, {
+      method: "POST",
+      headers: {
+        apikey: publishableKey,
+        Authorization: `Bearer ${publishableKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ email, password }),
+    });
+  } catch {
+    return {
+      ok: false,
+      message: "The service could not be reached. Check your connection and try again.",
+    };
+  }
+
+  let body = null;
+  try {
+    body = await res.json();
+  } catch {
+    body = null;
+  }
+
+  if (!res.ok) {
+    return { ok: false, message: mapLoginError(res.status, body) };
+  }
+
+  const session = sessionFromGrant(body, email);
+  if (!session) {
+    return { ok: false, message: "The sign-in response was incomplete. Try again." };
+  }
+  return { ok: true, session };
+}
+
+// ── resume: the refresh-token grant (impure; fetch injected) ──────────────────
+//
+// The heart of the theatre. On a return visit the visitor presses "login" and this
+// runs — NO password is sent, because the stored refresh token is the credential.
+// POST /auth/v1/token?grant_type=refresh_token with { refresh_token }. A fresh token
+// pair comes back (the old refresh token is rotated). On any non-200 the session is
+// expired/revoked → { ok:false, expired:true } so the caller degrades honestly to a
+// real login form. Never throws for an HTTP error.
+export async function resumeSession(
+  { supabaseUrl, publishableKey, refresh_token, email },
+  fetchImpl,
+) {
+  const doFetch = fetchImpl || (typeof fetch !== "undefined" ? fetch : null);
+  if (!doFetch) {
+    return { ok: false, expired: false, message: "No network is available." };
+  }
+
+  const base = String(supabaseUrl || "").replace(/\/+$/, "");
+  const url = `${base}/auth/v1/token?grant_type=refresh_token`;
+
+  let res;
+  try {
+    res = await doFetch(url, {
+      method: "POST",
+      headers: {
+        apikey: publishableKey,
+        Authorization: `Bearer ${publishableKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ refresh_token }),
+    });
+  } catch {
+    // A transport failure is NOT an expired session — do not clear a valid session
+    // over a flaky network. The caller keeps the theatre and lets the visitor retry.
+    return {
+      ok: false,
+      expired: false,
+      message: "The service could not be reached. Try again in a moment.",
+    };
+  }
+
+  let body = null;
+  try {
+    body = await res.json();
+  } catch {
+    body = null;
+  }
+
+  if (!res.ok) {
+    // 400/401 on a refresh grant means the token is expired, revoked, or invalid.
+    return { ok: false, expired: true };
+  }
+
+  const session = sessionFromGrant(body, email);
+  if (!session) {
+    return { ok: false, expired: true };
+  }
+  return { ok: true, session };
+}
+
+// ── render (pure) ─────────────────────────────────────────────────────────────
+
+// The signed-in acknowledgment that replaces the form once a session resumes (or a
+// fresh login succeeds). Honest: it registers a name at a door that has not yet
+// opened — it never claims access to features that do not exist.
+export function renderSignedIn(email) {
+  const who = escapeHtml(email || "");
+  const line = who
+    ? `Your name is registered at the door, ${who}.`
+    : "Your name is registered at the door.";
+  return `<div class="threshold-done" role="status">
+  <p class="threshold-done-lead">Signed in.</p>
+  <p>${line}</p>
+  <p class="threshold-done-note">The doors have not opened. When they do, you will already be known here.</p>
+</div>`;
+}

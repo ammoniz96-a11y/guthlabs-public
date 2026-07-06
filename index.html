@@ -27,65 +27,104 @@
     <p>The doors have not opened; an account made now waits at the threshold.</p>
   </div>
 
-  <form id="threshold-form" class="threshold-form" novalidate autocomplete="off">
-    <div class="field">
-      <label for="username">Name</label>
-      <input
-        id="username"
-        name="username"
-        type="text"
-        autocomplete="username"
-        maxlength="40"
-        required
-      />
-      <span class="field-error-slot" data-error-for="username"></span>
-    </div>
+  <!-- The account panel. app.js chooses which face to show on load:
+       - a stored, resumable session  → the login form, pre-filled (the theatre);
+       - no session, default          → the signup form (create an account);
+       - the visitor may switch to a plain login form via the quiet toggle.
+       Both forms are present in the markup; app.js shows one and hides the other.
+       "normal after the warning" does not apply to the threshold — this is the one
+       page allowed atmosphere (LOOP_LOG 2026-07-05). -->
+  <div class="threshold-account" data-mode="signup">
+    <form id="signup-form" class="threshold-form" novalidate autocomplete="off">
+      <div class="field">
+        <label for="username">Name</label>
+        <input
+          id="username"
+          name="username"
+          type="text"
+          autocomplete="username"
+          maxlength="40"
+          required
+        />
+        <span class="field-error-slot" data-error-for="username"></span>
+      </div>
 
-    <div class="field">
-      <label for="email">Email</label>
-      <input
-        id="email"
-        name="email"
-        type="email"
-        autocomplete="email"
-        required
-      />
-      <span class="field-error-slot" data-error-for="email"></span>
-    </div>
+      <div class="field">
+        <label for="email">Email</label>
+        <input id="email" name="email" type="email" autocomplete="email" required />
+        <span class="field-error-slot" data-error-for="email"></span>
+      </div>
 
-    <div class="field">
-      <label for="password">Password</label>
-      <input
-        id="password"
-        name="password"
-        type="password"
-        autocomplete="new-password"
-        required
-      />
-      <span class="field-error-slot" data-error-for="password"></span>
-    </div>
+      <div class="field">
+        <label for="password">Password</label>
+        <input
+          id="password"
+          name="password"
+          type="password"
+          autocomplete="new-password"
+          required
+        />
+        <span class="field-error-slot" data-error-for="password"></span>
+      </div>
 
-    <div class="field">
-      <label for="confirm">Confirm password</label>
-      <input
-        id="confirm"
-        name="confirm"
-        type="password"
-        autocomplete="new-password"
-        required
-      />
-      <span class="field-error-slot" data-error-for="confirm"></span>
-    </div>
+      <div class="field">
+        <label for="confirm">Confirm password</label>
+        <input
+          id="confirm"
+          name="confirm"
+          type="password"
+          autocomplete="new-password"
+          required
+        />
+        <span class="field-error-slot" data-error-for="confirm"></span>
+      </div>
 
-    <div class="form-error-slot" data-error-for="form"></div>
+      <div class="form-error-slot" data-error-for="signup-form"></div>
 
-    <button type="submit">Create account</button>
-  </form>
+      <button type="submit">Create account</button>
+      <button type="button" class="threshold-switch" data-switch-to="login">
+        Already have an account? Sign in.
+      </button>
+    </form>
+
+    <form id="login-form" class="threshold-form" novalidate autocomplete="off" hidden>
+      <div class="field">
+        <label for="login-email">Email</label>
+        <input
+          id="login-email"
+          name="email"
+          type="email"
+          autocomplete="email"
+          required
+        />
+        <span class="field-error-slot" data-error-for="login-email"></span>
+      </div>
+
+      <div class="field">
+        <label for="login-password">Password</label>
+        <input
+          id="login-password"
+          name="password"
+          type="password"
+          autocomplete="current-password"
+          required
+        />
+        <span class="field-error-slot" data-error-for="login-password"></span>
+      </div>
+
+      <div class="form-error-slot" data-error-for="login-form"></div>
+
+      <button type="submit">Log in</button>
+      <button type="button" class="threshold-switch" data-switch-to="signup">
+        Need an account? Create one.
+      </button>
+    </form>
+  </div>
 
   <a class="threshold-aside" href="./record.html">read the record</a>
 </main>
 
 <script type="module">
   import { mountThreshold } from "./js/app.js";
-  mountThreshold("threshold-form");
+  mountThreshold();
 </script>
