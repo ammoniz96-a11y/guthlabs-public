@@ -109,6 +109,22 @@ export function mapSignupError(status, body) {
   if (/invalid|valid email|unable to validate email/i.test(lower)) {
     return "That email address was not accepted.";
   }
+  // GoTrue MASKS trigger exceptions. The migration-011 trigger is the ONLY thing on
+  // auth.users that RAISEs during signup, and it RAISEs for exactly three states —
+  // blank name, reserved name, taken name. But GoTrue does not surface the PL/pgSQL
+  // message: it catches ANY DB error during user creation and re-emits the generic
+  // HTTP 500 { code: "unexpected_failure", msg: "Database error saving new user" }
+  // with NO trigger detail. So the specific name regexes above can NEVER match in
+  // production — they are kept only as a fallthrough for the day GoTrue stops masking.
+  //
+  // Given the masking, a 500 "Database error saving new user" on the SIGNUP path is,
+  // in THIS system, overwhelmingly a name rejection. We map it to an honest line that
+  // does NOT falsely claim which of taken-vs-reserved it was — the server destroyed
+  // that distinction, so we stay truthful about the uncertainty rather than inventing
+  // a certainty. (The regexes above already caught reserved/taken when detail exists.)
+  if (status >= 500 && /database error saving new user/i.test(lower)) {
+    return "That name could not be registered — it may already be taken or reserved. Try another.";
+  }
   // A real server message, if honest and present, is better than a generic line.
   if (text.trim().length > 0) return text.trim();
   if (status >= 500) return "The service could not be reached. Try again shortly.";
