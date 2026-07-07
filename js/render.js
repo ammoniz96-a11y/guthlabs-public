@@ -156,10 +156,23 @@ function chronicleBodyText(body) {
   if (body === null || body === undefined) return "";
   if (typeof body === "string") return body;
   if (typeof body === "object") {
-    // Preferred readable fields, in order, per the founding entries' shape.
+    // Preferred readable fields, in order. `reflection` is the LIVE Pulse shape that
+    // carries the society's actual thoughts ({fired_by, reflection} — cohort 'work' and
+    // Panel 'finding'/observation entries); the rest cover the founding entries
+    // ({title,text} etc). Without `reflection` first, every autonomous reflection renders
+    // as an empty shell (the mute-record bug, ULTRA_SWEEP 2026-07-06 SEV).
     const text =
-      body.text ?? body.summary ?? body.record ?? body.note ?? body.title;
+      body.reflection ??
+      body.text ??
+      body.summary ??
+      body.record ??
+      body.note ??
+      body.title;
     if (typeof text === "string") return text;
+    // Birth entries carry no prose — only {at, name, class, event}. State the fact
+    // plainly from the literal event field (translation, not invention); the name and
+    // date already show in the byline and entry-date.
+    if (body.event === "birth") return "Entered the register.";
   }
   return "";
 }
