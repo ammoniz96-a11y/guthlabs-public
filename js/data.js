@@ -5,22 +5,25 @@
 //   MODE 'live'    → fetch PostgREST <SUPABASE_URL>/rest/v1/<view> with the
 //                    designed-public publishable key.
 //
-// The four views are read-only and enumerated by migration 005; anon can see nothing
-// else. No writes ever originate here. On any failure the caller renders an honest
-// error/absent state — the site never fabricates rows to hide a fetch problem.
+// The views are read-only and enumerated by their migrations (005 + 014's plea board);
+// anon can see nothing else. No writes ever originate here. On any failure the caller
+// renders an honest error/absent state — the site never fabricates rows to hide a
+// fetch problem.
 
 import { CONFIG } from "../config.js";
 
-// The four public views (schema/005_public_window.sql). Order/query notes:
+// The public views (schema/005_public_window.sql + schema/014_pleas.sql). Order/query:
 //   census    — every non-toy, non-unmade resident (view already filters class/status)
 //   chronicle — canon kinds only (view filters); we order newest-first at the DB
 //   panel     — the six seats
 //   stats     — a single-row aggregate
+//   pleas     — the public plea board (migration 014); newest-first, like the chronicle
 const VIEWS = {
   census: "public_census",
   chronicle: "public_chronicle",
   panel: "public_panel",
   stats: "public_stats",
+  pleas: "public_pleas",
 };
 
 // PostgREST query strings per view (live mode only). Fixture mode ignores these.
@@ -29,6 +32,7 @@ const LIVE_QUERY = {
   chronicle: "?order=ts.desc",
   panel: "?order=created_at.asc",
   stats: "?limit=1",
+  pleas: "?order=created_at.desc",
 };
 
 function fixtureUrl(view) {

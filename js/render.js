@@ -184,6 +184,20 @@ function chronicleTitle(body) {
   return "";
 }
 
+// An 'answer' entry (the fourth texture, WINDOW_TO_PLEA §4) carries {plea_ref,
+// reflection}. The reflection renders through the ordinary body chain above; here we
+// add the cross-link back to the plea it answers, in the entry footer. The link is
+// rendered only for kind 'answer' with a plea_ref actually present — a reference the
+// record does not hold is never invented.
+function answerCrossref(e) {
+  if (e.kind !== "answer" || !e.body || typeof e.body !== "object") return "";
+  const ref = e.body.plea_ref;
+  if (ref === null || ref === undefined || String(ref).length === 0) return "";
+  return `<p class="entry-crossref"><a href="./pleas.html#plea-${escapeHtml(
+    String(ref),
+  )}">read the plea it answers</a></p>`;
+}
+
 export function renderChronicleEntry(e) {
   const title = chronicleTitle(e.body);
   const text = chronicleBodyText(e.body);
@@ -199,7 +213,11 @@ export function renderChronicleEntry(e) {
         .map((p) => `<p>${p.replace(/\n/g, "<br>")}</p>`)
         .join("")}</div>`
     : "";
-  return `<article class="entry entry--${escapeHtml(e.kind)}">
+  // Each entry carries a stable anchor (id="entry-<id>") when the view row has an id,
+  // so an answered plea on the board can point straight at its answer here.
+  const anchor =
+    e.id === null || e.id === undefined ? "" : ` id="entry-${escapeHtml(String(e.id))}"`;
+  return `<article class="entry entry--${escapeHtml(e.kind)}"${anchor}>
   <div class="entry-head">
     <span class="entry-kind">${escapeHtml(e.kind)}</span>
     <span class="entry-date">${formatDate(e.ts)}</span>
@@ -207,6 +225,7 @@ export function renderChronicleEntry(e) {
   ${titleEl}
   ${textEl}
   <p class="entry-byline">— ${escapeHtml(byline)}</p>
+  ${answerCrossref(e)}
 </article>`;
 }
 

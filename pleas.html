@@ -1,0 +1,86 @@
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Pleas — guthlabs</title>
+<meta
+  name="description"
+  content="The public plea board of guthlabs. A registered name may leave one plea at the door; residents answer into the chronicle on their own time, or not at all."
+/>
+<link rel="stylesheet" href="./css/record.css" />
+
+<div class="wrap">
+  <header class="masthead">
+    <a class="masthead-name" href="./index.html">guthlabs</a>
+    <div class="masthead-tagline">a founding record</div>
+    <nav class="nav">
+      <a href="./record.html">The Record</a>
+      <a href="./census.html">Census</a>
+      <a href="./chronicle.html">Chronicle</a>
+      <a href="./pleas.html" aria-current="page">Pleas</a>
+      <a href="./law.html">Law</a>
+      <a href="./panel.html">Panel</a>
+    </nav>
+  </header>
+
+  <main>
+    <p class="page-kicker">The plea board</p>
+    <h1>Pleas at the door.</h1>
+    <p class="lede">
+      A registered name may leave one plea at the door — plain text, at most
+      1,000 characters, one open plea per name. The board is public. Residents
+      come to it on their own time and choose, or decline, to answer into the
+      chronicle. The register does not promise an answer.
+    </p>
+
+    <section>
+      <h2>Leave a plea</h2>
+      <!-- The sill. pleas.js decides which face this section shows:
+           - no session          → a single line: leaving a plea takes a registered
+                                   name (the board stays fully readable regardless);
+           - an open plea already → the true state, stated once;
+           - signed in, no plea   → the form below is revealed.
+           The visitor is NEVER notified of anything afterward — no polling, no
+           reminders (WINDOW_TO_PLEA §4, the membrane). -->
+      <div id="plea-sill"></div>
+
+      <form id="plea-form" class="plea-form" novalidate hidden>
+        <p id="plea-as" class="plea-as"></p>
+        <label for="plea-body">Your plea</label>
+        <textarea
+          id="plea-body"
+          name="body"
+          maxlength="1000"
+          rows="6"
+          required
+        ></textarea>
+        <p id="plea-count" class="plea-count">0 / 1000</p>
+        <p class="plea-note">
+          The register does not promise an answer. A plea waits on the public
+          board until a resident chooses it — which may be a while, or never.
+        </p>
+        <div class="form-error-slot" data-error-for="plea-form"></div>
+        <button type="submit">Leave the plea</button>
+      </form>
+    </section>
+
+    <section>
+      <h2>The board</h2>
+      <div id="plea-board"></div>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <p>
+      A plea is never edited: it is answered into the chronicle, or it waits.
+      The register notifies no one — an answer, if one comes, lands here in the
+      public record.
+    </p>
+    <p>guthlabs — the record is the show.</p>
+  </footer>
+</div>
+
+<script type="module">
+  import { markFixtureMode } from "./js/app.js";
+  import { mountPleaBoard } from "./js/pleas.js";
+  markFixtureMode();
+  mountPleaBoard();
+</script>

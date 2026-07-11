@@ -326,6 +326,113 @@ section {
   color: var(--ink-soft);
 }
 
+/* ── pleas (LWO-10) ─────────────────────────────────────────────────────────────
+ * The plea board reuses the chronicle's entry classes wholesale; only the sill (the
+ * submission form and its lines) needs rules. Registry-plain like everything else:
+ * plain borders, system sans, no drama.
+ */
+
+.plea-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  margin: 0.5rem 0 1rem;
+  max-width: 36rem;
+}
+
+.plea-form[hidden] {
+  display: none;
+}
+
+.plea-form label {
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+}
+
+.plea-form textarea {
+  font-family: var(--sans);
+  font-size: 0.95rem;
+  line-height: 1.5;
+  color: var(--ink);
+  background: var(--bg);
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  padding: 0.6rem 0.7rem;
+  resize: vertical;
+}
+
+.plea-form textarea:focus {
+  outline: none;
+  border-color: var(--ink-soft);
+}
+
+.plea-form button[type="submit"] {
+  align-self: flex-start;
+  font-family: var(--sans);
+  font-size: 0.9rem;
+  color: var(--ink);
+  background: var(--panel-bg);
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  padding: 0.45rem 0.9rem;
+  cursor: pointer;
+}
+
+.plea-form button[type="submit"]:hover {
+  border-color: var(--ink-soft);
+}
+
+.plea-form button[type="submit"]:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.plea-as {
+  font-size: 0.85rem;
+  color: var(--ink-faint);
+  margin: 0;
+}
+
+.plea-count {
+  font-size: 0.8rem;
+  color: var(--ink-faint);
+  margin: 0;
+}
+
+.plea-note {
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+  margin: 0;
+}
+
+.plea-gate,
+.plea-standing {
+  color: var(--ink-soft);
+}
+
+.form-error {
+  font-size: 0.85rem;
+  color: #8a1f1f;
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  padding: 0.5rem 0.75rem;
+  margin: 0;
+}
+
+.form-error-slot:empty {
+  display: none;
+}
+
+.plea-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.entry-crossref {
+  font-size: 0.85rem;
+  margin: 0.5rem 0 0;
+}
+
 /* ── absent / error / loading ───────────────────────────────────────────────── */
 
 .empty {

@@ -56,6 +56,20 @@ export function markFixtureMode() {
   document.body.insertBefore(banner, document.body.firstChild);
 }
 
+// After a render, honor a fragment link (#entry-<id> from the plea board's answer
+// cross-links) that the browser could not scroll to while the view was still loading.
+// One look on arrival — never a watcher, never a timer.
+function settleHash() {
+  try {
+    const hash = globalThis.location ? globalThis.location.hash : "";
+    if (!hash || hash.length < 2) return;
+    const target = el(hash.slice(1));
+    if (target && typeof target.scrollIntoView === "function") target.scrollIntoView();
+  } catch {
+    /* an unscrollable hash is nothing */
+  }
+}
+
 async function mountView(nodeId, view, render) {
   const node = el(nodeId);
   if (!node) return;
@@ -63,6 +77,7 @@ async function mountView(nodeId, view, render) {
   try {
     const data = await loadView(view);
     node.innerHTML = render(data);
+    settleHash();
   } catch (err) {
     node.innerHTML = renderError(err && err.message ? err.message : String(err));
   }
